@@ -9,6 +9,7 @@ use syn::{
 
 enum StackItem {
     Name(Ident),
+    NameCounted(Ident, Expr),
     /// Amount of unused (and unnamed) stack items
     Unused(Expr),
 }
@@ -62,7 +63,14 @@ impl Parse for Opcode {
                         }))
                     }
                 } else {
-                    StackItem::Name(name)
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::NameCounted(name, size)
+                    } else {
+                        StackItem::Name(name)
+                    }
                 },
             );
 
@@ -95,7 +103,14 @@ impl Parse for Opcode {
                         }))
                     }
                 } else {
-                    StackItem::Name(name)
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::NameCounted(name, size)
+                    } else {
+                        StackItem::Name(name)
+                    }
                 },
             );
 
@@ -147,7 +162,8 @@ fn sum_items(items: &[StackItem]) -> Expr {
                     attrs: vec![],
                     lit: syn::Lit::Int(LitInt::new("1", proc_macro::Span::call_site().into())),
                 }),
-                StackItem::Unused(expr) => expr.clone(),
+                StackItem::NameCounted(_, size) => size.clone(),
+                StackItem::Unused(size) => size.clone(),
             })
             .reduce(|left, right| {
                 syn::Expr::Binary(syn::ExprBinary {
