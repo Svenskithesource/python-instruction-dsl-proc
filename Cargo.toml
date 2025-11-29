@@ -4,7 +4,7 @@ license = "GPL-3.0-or-later"
 description = "A procedural macro for defining Python instructions in a DSL."
 repository = "https://github.com/Svenskithesource/python-instruction-dsl-proc"
 readme = "README.md"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 
 [lib]

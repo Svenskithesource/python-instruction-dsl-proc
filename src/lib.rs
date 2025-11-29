@@ -260,16 +260,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
         }
-
-        #[macro_export]
-        macro_rules! get_names {
-            (@instruction $variant:ident, $val:expr) => {
-                paste::paste! { Instruction::[<$variant:camel>]($val) }
-            };
-            (@instruction $variant:ident) => {
-                paste::paste! { Instruction::[<$variant:camel>](_) }
-            };
-        }
     };
 
     expanded.into()
