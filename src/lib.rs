@@ -257,6 +257,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     #(
                         Opcode::#names => StackEffect { pops: #pops, pushes: #pushes },
                     )*
+                    Opcode::INVALID_OPCODE(_) => StackEffect { pops: 0, pushes: 0 },
                 }
             }
         }
