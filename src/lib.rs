@@ -278,6 +278,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         Opcode::#names_with_stack => StackEffect { pops: #pops, pushes: #pushes },
                     )*
                     Opcode::INVALID_OPCODE(_) => StackEffect { pops: 0, pushes: 0 },
+
+                    _ => unimplemented!("stack_effect not implemented for {:?}", self),
                 }
             }
         }
