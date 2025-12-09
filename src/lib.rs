@@ -252,7 +252,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
 
         impl StackEffectTrait for Opcode {
-            fn stack_effect(&self, oparg: u32, jump: bool) -> StackEffect {
+            fn stack_effect(&self, oparg: u32, jump: bool, calculate_max: bool) -> StackEffect {
                 match &self {
                     #(
                         Opcode::#names => StackEffect { pops: #pops, pushes: #pushes },
