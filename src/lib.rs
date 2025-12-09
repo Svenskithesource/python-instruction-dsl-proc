@@ -7,6 +7,7 @@ use syn::{
     token::Paren,
 };
 
+#[derive(Clone)]
 enum StackItem {
     Name(Ident),
     NameCounted(Ident, Expr),
@@ -14,20 +15,23 @@ enum StackItem {
     Unused(Expr),
 }
 
+#[derive(Clone)]
 struct StackEffect {
     pops: Vec<StackItem>,
     pushes: Vec<StackItem>,
 }
 
+#[derive(Clone)]
 struct Opcode {
     name: Ident,
     number: LitInt,
-    stack_effect: StackEffect,
+    stack_effect: Option<StackEffect>,
 }
 
 impl Parse for Opcode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         // Example: LOAD_CONST = 100 ( -- constant)
+        // You may also use ( / ) to indicate this opcode has no stack description.
         let name: Ident = input.parse()?;
         input.parse::<Token![=]>()?;
         let number: LitInt = input.parse()?;
@@ -40,6 +44,15 @@ impl Parse for Opcode {
             pops: vec![],
             pushes: vec![],
         };
+
+        if inner_stack_effect.parse::<Token![/]>().is_ok() {
+            // This opcode does not have a stack description
+            return Ok(Opcode {
+                name,
+                number,
+                stack_effect: None,
+            });
+        }
 
         // Pops
         while inner_stack_effect.peek(Ident) {
@@ -122,7 +135,7 @@ impl Parse for Opcode {
         Ok(Opcode {
             name,
             number,
-            stack_effect,
+            stack_effect: Some(stack_effect),
         })
     }
 }
@@ -183,17 +196,24 @@ fn sum_items(items: &[StackItem]) -> Expr {
 pub fn define_opcodes(input: TokenStream) -> TokenStream {
     let Opcodes { opcodes } = parse_macro_input!(input as Opcodes);
 
-    let names: Vec<_> = opcodes.iter().map(|o| &o.name).collect();
-    let numbers: Vec<_> = opcodes.iter().map(|o| &o.number).collect();
-
-    let pops: Vec<_> = opcodes
+    let opcodes_with_stack: Vec<_> = opcodes
         .iter()
-        .map(|o| sum_items(&o.stack_effect.pops))
+        .filter(|o| o.stack_effect.is_some())
         .collect();
 
-    let pushes: Vec<_> = opcodes
+    let names: Vec<_> = opcodes.iter().map(|o| &o.name).collect();
+    let names_with_stack: Vec<_> = opcodes_with_stack.iter().map(|o| &o.name).collect();
+
+    let numbers: Vec<_> = opcodes.iter().map(|o| &o.number).collect();
+
+    let pops: Vec<_> = opcodes_with_stack
         .iter()
-        .map(|o| sum_items(&o.stack_effect.pushes))
+        .map(|o| sum_items(&o.stack_effect.as_ref().unwrap().pops))
+        .collect();
+
+    let pushes: Vec<_> = opcodes_with_stack
+        .iter()
+        .map(|o| sum_items(&o.stack_effect.as_ref().unwrap().pushes))
         .collect();
 
     let expanded = quote! {
@@ -255,7 +275,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             fn stack_effect(&self, oparg: u32, jump: bool, calculate_max: bool) -> StackEffect {
                 match &self {
                     #(
-                        Opcode::#names => StackEffect { pops: #pops, pushes: #pushes },
+                        Opcode::#names_with_stack => StackEffect { pops: #pops, pushes: #pushes },
                     )*
                     Opcode::INVALID_OPCODE(_) => StackEffect { pops: 0, pushes: 0 },
                 }
