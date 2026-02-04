@@ -1,7 +1,7 @@
 extern crate proc_macro;
+use heck::ToUpperCamelCase;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse_quote;
 use syn::{
     Expr, Ident, LitInt, Token, bracketed, parenthesized, parse::Parse, parse_macro_input,
     token::Paren,
@@ -202,6 +202,14 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         .collect();
 
     let names: Vec<_> = opcodes.iter().map(|o| &o.name).collect();
+    let camel_names: Vec<Ident> = names
+        .iter()
+        .map(|ident| {
+            let camel = ident.to_string().to_upper_camel_case();
+            Ident::new(&camel, ident.span())
+        })
+        .collect();
+
     let names_with_stack: Vec<_> = opcodes_with_stack.iter().map(|o| &o.name).collect();
 
     let numbers: Vec<_> = opcodes.iter().map(|o| &o.number).collect();
@@ -216,7 +224,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         .map(|o| sum_items(&o.stack_effect.as_ref().unwrap().pushes))
         .collect();
 
-    let expanded = quote! {
+    let mut expanded = quote! {
         #[allow(non_camel_case_types)]
         #[allow(clippy::upper_case_acronyms)]
         #[derive(Debug, Clone, PartialEq, Eq)]
@@ -247,7 +255,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             fn from(value: (Opcode, u8)) -> Self {
                 match value.0 {
                     #(
-                        Opcode::#names => get_names!(@instruction #names, value.1),
+                        Opcode::#names => Instruction::#camel_names(value.1),
                     )*
                     Opcode::INVALID_OPCODE(opcode) => {
                         if !cfg!(test) {
@@ -264,7 +272,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             pub fn from_instruction(instruction: &Instruction) -> Self {
                 match instruction {
                     #(
-                        get_names!(@instruction #names) => Opcode::#names ,
+                        Instruction::#camel_names(_) => Opcode::#names ,
                     )*
                     Instruction::InvalidOpcode((opcode, _)) => Opcode::INVALID_OPCODE(*opcode),
                 }
