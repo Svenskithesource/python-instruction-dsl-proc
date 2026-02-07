@@ -296,7 +296,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     let mut input_sirs = vec![];
     let mut output_sirs = vec![];
 
-    for (opcode, camel_name) in opcodes.iter().zip(camel_names) {
+    for (opcode, name) in opcodes.iter().zip(names) {
         let mut input_constructor_fields = vec![];
         let mut output_constructor_fields = vec![];
 
@@ -334,13 +334,13 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
         }
 
-        input_sirs.push(quote! { Opcode::#camel_name => vec![
+        input_sirs.push(quote! { Opcode::#name => vec![
             #(
                 #input_constructor_fields
             ),*
         ] });
 
-        output_sirs.push(quote! { Opcode::#camel_name => vec![
+        output_sirs.push(quote! { Opcode::#name => vec![
             #(
                 #output_constructor_fields
             ),*
