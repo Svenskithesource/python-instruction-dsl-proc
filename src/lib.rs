@@ -296,80 +296,81 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     let mut sirs = vec![];
 
     for (opcode, camel_name) in opcodes.iter().zip(camel_names) {
-        let mut input_fields = vec![];
-        let mut output_fields = vec![];
+        let mut input_constructor_fields = vec![];
+        let mut output_constructor_fields = vec![];
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            // Used for unique variable names if "unused" appears multiple times.
-            let mut unused_count = 0;
             for pop in &stack_effect.pops {
                 match pop {
-                    StackItem::Name(name) => input_fields.push(quote! { #name : AuxVar }),
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        input_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1 } })
+                    }
                     StackItem::NameCounted(name, count) => {
-                        input_fields.push(quote! { #name : [AuxVar; #count ] })
+                        let name = name.to_string();
+                        input_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: #count } })
                     }
-                    StackItem::Unused(count) => {
-                        let name =
-                            syn::Ident::new(&format!("unused_{}", unused_count), count.span());
-
-                        unused_count += 1;
-
-                        input_fields.push(quote! { #name : [AuxVar; #count ] })
-                    }
+                    StackItem::Unused(_) => {}
                 }
             }
 
-            let mut unused_count = 0;
             for push in &stack_effect.pushes {
                 match push {
-                    StackItem::Name(name) => output_fields.push(quote! { #name : AuxVar }),
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        output_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1 } })
+                    }
                     StackItem::NameCounted(name, count) => {
-                        output_fields.push(quote! { #name : [AuxVar; #count ] })
+                        let name = name.to_string();
+                        output_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: #count } })
                     }
-                    StackItem::Unused(count) => {
-                        let name =
-                            syn::Ident::new(&format!("unused_{}", unused_count), count.span());
-
-                        unused_count += 1;
-
-                        output_fields.push(quote! { #name : [AuxVar; #count ] })
-                    }
+                    StackItem::Unused(_) => {}
                 }
             }
         }
 
-        let camel_name_input = syn::Ident::new(&format!("{}Input", camel_name), camel_name.span());
-        let camel_name_output =
-            syn::Ident::new(&format!("{}Output", camel_name), camel_name.span());
-
         sirs.push(quote! {
             #[derive(PartialEq, Debug, Clone)]
-            struct #camel_name_input {
-                #(
-                    #input_fields
-                )*
+            struct #camel_name {
+                input: Vec<StackItem>
+                output: Vec<StackItem>
             }
 
-            #[derive(PartialEq, Debug, Clone)]
-            struct #camel_name_output {
-                #(
-                    #output_fields
-                )*
+            impl #camel_name {
+                pub fn new(oparg: u32, jump: bool) -> Self {
+                    let calculate_max = false;
+
+                    Self {
+                        input: vec![
+                            #(
+                                #input_constructor_fields
+                            ),*
+                        ],
+                        output: vec![
+                            #(
+                                #output_constructor_fields
+                            ),*
+                        ],
+                    }
+                }
             }
 
-            impl SIRNodeInput for #camel_name_input {}
-            impl SIRNodeOutput for #camel_name_output {}
+            impl SIRNode for #camel_name {}
         });
     }
 
     let sir = quote! {
         pub mod sir {
-            pub trait SIRNodeInput {}
-            pub trait SIRNodeOutput {}
+            pub trait SIRNode {}
 
-            pub struct SIRNode {
-                input: impl SIRNodeInput,
-                output: impl SIRNodeOutput,
+            #[derive(PartialEq, Debug, Clone)]
+            pub struct StackItem {
+                name: &'static str,
+                count: u32,
             }
 
             #(
