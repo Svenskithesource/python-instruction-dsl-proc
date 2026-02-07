@@ -372,12 +372,14 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         #(
                             #input_sirs
                         ),*
+                        Opcode::INVALID_OPCODE(_) => vec![],
                     };
 
                     let output = match opcode {
                         #(
                             #output_sirs
                         ),*
+                        Opcode::INVALID_OPCODE(_) => vec![],
                     };
 
                     Self {
