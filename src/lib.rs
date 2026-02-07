@@ -336,7 +336,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         sirs.push(quote! {
             #[derive(PartialEq, Debug, Clone)]
             struct #camel_name {
-                input: Vec<StackItem>
+                input: Vec<StackItem>,
                 output: Vec<StackItem>
             }
 
@@ -380,6 +380,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     };
 
     expanded.extend(sir);
+
+    // print!("{}", expanded);
 
     expanded.into()
 }
