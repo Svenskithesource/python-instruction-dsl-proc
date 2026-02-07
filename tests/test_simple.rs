@@ -1,5 +1,6 @@
 use pyc_editor::traits::StackEffectTrait;
 use pyc_editor::utils::StackEffect;
+use pyc_editor::v310::ext_instructions::ExtInstruction;
 use pyc_editor::v310::instructions::Instruction;
 use python_instruction_dsl_proc::define_opcodes;
 

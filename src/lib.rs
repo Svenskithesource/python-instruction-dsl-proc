@@ -301,35 +301,47 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let mut output_constructor_fields = vec![];
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            for pop in &stack_effect.pops {
+            let mut index = quote! { 0 };
+            for pop in stack_effect.pops.iter().rev() {
                 match pop {
                     StackItem::Name(name) => {
                         let name = name.to_string();
                         input_constructor_fields
-                            .push(quote! { StackItem { name: #name, count: 1 } })
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
                     }
                     StackItem::NameCounted(name, count) => {
                         let name = name.to_string();
-                        input_constructor_fields
-                            .push(quote! { StackItem { name: #name, count: #count } })
+                        input_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
                     }
-                    StackItem::Unused(_) => {}
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
                 }
             }
 
-            for push in &stack_effect.pushes {
+            let mut index = quote! { 0 };
+            for push in stack_effect.pushes.iter().rev() {
                 match push {
                     StackItem::Name(name) => {
                         let name = name.to_string();
                         output_constructor_fields
-                            .push(quote! { StackItem { name: #name, count: 1 } })
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
                     }
                     StackItem::NameCounted(name, count) => {
                         let name = name.to_string();
-                        output_constructor_fields
-                            .push(quote! { StackItem { name: #name, count: #count } })
+                        output_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
                     }
-                    StackItem::Unused(_) => {}
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
                 }
             }
         }
@@ -349,11 +361,12 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
     let sir = quote! {
         pub mod sir {
-            use super::Opcode;
+            use super::{Opcode, ExtInstruction};
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRNode {
                 opcode: Opcode,
+                oparg: u32,
                 input: Vec<StackItem>,
                 output: Vec<StackItem>,
             }
@@ -362,10 +375,13 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             pub struct StackItem {
                 name: &'static str,
                 count: u32,
+                /// Index of the (first) item on the stack (0 = TOS)
+                index: u32,
             }
 
             impl SIRNode {
                 pub fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
+                    // This comes from the Python DSL where it is used to calculate the max stack usage possible. We intentionally disable it here.
                     let calculate_max = false;
 
                     let input = match opcode {
@@ -384,17 +400,18 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                     Self {
                         opcode,
+                        oparg,
                         input,
                         output,
                     }
                 }
             }
+
+
         }
     };
 
     expanded.extend(sir);
-
-    // print!("{}", expanded);
 
     expanded.into()
 }
