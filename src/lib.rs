@@ -293,7 +293,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
     };
 
-    let mut sirs = vec![];
+    let mut input_sirs = vec![];
+    let mut output_sirs = vec![];
 
     for (opcode, camel_name) in opcodes.iter().zip(camel_names) {
         let mut input_constructor_fields = vec![];
@@ -333,39 +334,29 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
         }
 
-        sirs.push(quote! {
-            #[derive(PartialEq, Debug, Clone)]
-            struct #camel_name {
-                input: Vec<StackItem>,
-                output: Vec<StackItem>
-            }
+        input_sirs.push(quote! { Opcode::#camel_name => vec![
+            #(
+                #input_constructor_fields
+            ),*
+        ] });
 
-            impl #camel_name {
-                pub fn new(oparg: u32, jump: bool) -> Self {
-                    let calculate_max = false;
-
-                    Self {
-                        input: vec![
-                            #(
-                                #input_constructor_fields
-                            ),*
-                        ],
-                        output: vec![
-                            #(
-                                #output_constructor_fields
-                            ),*
-                        ],
-                    }
-                }
-            }
-
-            impl SIRNode for #camel_name {}
-        });
+        output_sirs.push(quote! { Opcode::#camel_name => vec![
+            #(
+                #output_constructor_fields
+            ),*
+        ] });
     }
 
     let sir = quote! {
         pub mod sir {
-            pub trait SIRNode {}
+            use super::Opcode;
+
+            #[derive(PartialEq, Debug, Clone)]
+            pub struct SIRNode {
+                opcode: Opcode,
+                input: Vec<StackItem>,
+                output: Vec<StackItem>,
+            }
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct StackItem {
@@ -373,9 +364,29 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 count: u32,
             }
 
-            #(
-                #sirs
-            )*
+            impl SIRNode {
+                pub fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
+                    let calculate_max = false;
+
+                    let input = match opcode {
+                        #(
+                            #input_sirs
+                        ),*
+                    };
+
+                    let output = match opcode {
+                        #(
+                            #output_sirs
+                        ),*
+                    };
+
+                    Self {
+                        opcode,
+                        input,
+                        output,
+                    }
+                }
+            }
         }
     };
 
