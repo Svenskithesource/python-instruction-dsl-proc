@@ -323,6 +323,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
+            input_constructor_fields.reverse();
+
             let mut index = quote! { 0 };
             for push in stack_effect.pushes.iter().rev() {
                 match push {
@@ -344,6 +346,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     }
                 }
             }
+
+            output_constructor_fields.reverse();
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -361,7 +365,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
     let sir = quote! {
         pub mod sir {
-            use super::{Opcode, ExtInstruction};
+            use super::{Opcode, ExtInstruction, SIR};
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRNode {
@@ -369,14 +373,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 oparg: u32,
                 input: Vec<StackItem>,
                 output: Vec<StackItem>,
-            }
-
-            #[derive(PartialEq, Debug, Clone)]
-            pub struct StackItem {
-                name: &'static str,
-                count: u32,
-                /// Index of the (first) item on the stack (0 = TOS)
-                index: u32,
             }
 
             impl SIRNode {
@@ -407,7 +403,25 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
+            impl GenericSIRNode<Opcode> for SIRNode<Opcode> {
+                fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
+                    SIRNode::new(opcode, oparg, jump)
+                }
 
+                fn get_outputs(&self) -> &[StackItem] {
+                    &self.output
+                }
+
+                fn get_inputs(&self) -> &[StackItem] {
+                    &self.input
+                }
+            }
+
+            impl SIROwned<SIRNode> for SIR<SIRNode> {
+                fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
+                    SIR { 0: statements };
+                }
+            }
         }
     };
 
