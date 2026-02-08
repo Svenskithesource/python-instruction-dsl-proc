@@ -457,7 +457,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         })
                         .collect::<Vec<_>>()
                         .join(", ");
-                    write!(f, "{:#?}({})", self.node.opcode, inputs)
+                    write!(f, "{:#?}({})", self.node, inputs)
                 }
             }
         }
