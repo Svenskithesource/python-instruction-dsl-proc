@@ -372,10 +372,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRNode {
-                opcode: Opcode,
-                oparg: u32,
-                input: Vec<StackItem>,
-                output: Vec<StackItem>,
+                pub opcode: Opcode,
+                pub oparg: u32,
+                pub input: Vec<StackItem>,
+                pub output: Vec<StackItem>,
             }
 
             impl SIRNode {
@@ -422,7 +422,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             impl SIROwned<SIRNode> for SIR<SIRNode> {
                 fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
-                    SIR { 0: statements };
+                    SIR { 0: statements }
                 }
             }
         }
