@@ -425,6 +425,41 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     SIR(statements)
                 }
             }
+
+            impl<SIRNode: std::fmt::Debug> std::fmt::Display for SIR<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    for statement in &self.0 {
+                        match statement {
+                            SIRStatement::Assignment(aux_var, call) => {
+                                writeln!(f, "{} = {}", aux_var.name, call)?;
+                            }
+                            SIRStatement::TupleAssignment(aux_vars, call) => {
+                                let vars = aux_vars.iter().map(|v| v.name.clone()).collect::<Vec<_>>().join(", ");
+                                writeln!(f, "({}) = {}", vars, call)?;
+                            }
+                            SIRStatement::DisregardCall(call) => {
+                                writeln!(f, "{}", call)?;
+                            }
+                        }
+                    }
+                    Ok(())
+                }
+            }
+
+            impl<SIRNode: std::fmt::Debug> std::fmt::Display for Call<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let inputs = self
+                        .stack_inputs
+                        .iter()
+                        .map(|input| match input {
+                            SIRExpression::Call(call) => format!("{}", call),
+                            SIRExpression::AuxVar(aux_var) => aux_var.name.clone(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "{:#?}({})", self.node.opcode, inputs)
+                }
+            }
         }
     };
 
