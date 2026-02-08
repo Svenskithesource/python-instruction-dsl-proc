@@ -365,7 +365,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
     let sir = quote! {
         pub mod sir {
-            use super::{Opcode, ExtInstruction, SIR};
+            use super::{Opcode, SIR};
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRNode {
