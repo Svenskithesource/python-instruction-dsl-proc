@@ -448,16 +448,18 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             impl std::fmt::Display for Call<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    let inputs = self
+                    let mut inputs = self
                         .stack_inputs
                         .iter()
                         .map(|input| match input {
                             SIRExpression::Call(call) => format!("{}", call),
                             SIRExpression::AuxVar(aux_var) => aux_var.name.clone(),
                         })
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    write!(f, "{:#?}({}, {})", self.node.opcode, inputs, self.node.oparg)
+                        .collect::<Vec<_>>();
+
+                    inputs.push(format!("{}", self.node.oparg));
+
+                    write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "), self.node.oparg)
                 }
             }
         }
