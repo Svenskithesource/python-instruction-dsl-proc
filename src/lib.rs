@@ -406,7 +406,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl GenericSIRNode<Opcode> for SIRNode<Opcode> {
+            impl GenericSIRNode<Opcode> for SIRNode {
                 fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
                     SIRNode::new(opcode, oparg, jump)
                 }
@@ -422,7 +422,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             impl SIROwned<SIRNode> for SIR<SIRNode> {
                 fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
-                    SIR { 0: statements }
+                    SIR::new(statements)
                 }
             }
         }
