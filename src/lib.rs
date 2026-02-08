@@ -365,7 +365,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
     let sir = quote! {
         pub mod sir {
-            use super::{Opcode, SIR};
+            use super::{Opcode};
+            use crate::sir::{SIR, StackItem};
+            use crate::traits::{GenericSIRNode, SIROwned};
+
 
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRNode {
