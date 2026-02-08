@@ -459,7 +459,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                     inputs.push(format!("{}", self.node.oparg));
 
-                    write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "), self.node.oparg)
+                    write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "))
                 }
             }
         }
