@@ -453,16 +453,22 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     let mut inputs = self
                         .stack_inputs
                         .iter()
-                        .map(|input| match input {
-                            SIRExpression::Call(call) => format!("{}", call),
-                            SIRExpression::AuxVar(aux_var) => aux_var.name.clone(),
-                            SIRExpression::PhiNode(phi) => format!("phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", "))
-                        })
+                        .map(|input| format!("{}", input))
                         .collect::<Vec<_>>();
 
                     inputs.push(format!("{}", self.node.oparg));
 
                     write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "))
+                }
+            }
+
+            impl std::fmt::Display for SIRExpression<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        SIRExpression::Call(call) => write!(f, "{}", call),
+                        SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
+                        SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
+                    }
                 }
             }
         }
