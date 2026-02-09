@@ -456,6 +456,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         .map(|input| match input {
                             SIRExpression::Call(call) => format!("{}", call),
                             SIRExpression::AuxVar(aux_var) => aux_var.name.clone(),
+                            SIRExpression::PhiNode(phi) => format!("phi({})", phi.join(", "))
                         })
                         .collect::<Vec<_>>();
 
