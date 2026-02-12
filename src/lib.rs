@@ -346,8 +346,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-
-            output_constructor_fields;
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
