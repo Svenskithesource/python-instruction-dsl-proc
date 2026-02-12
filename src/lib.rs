@@ -326,7 +326,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             input_constructor_fields.reverse();
 
             let mut index = quote! { 0 };
-            for push in stack_effect.pushes.iter() {
+            for push in stack_effect.pushes.iter().rev() {
                 match push {
                     StackItem::Name(name) => {
                         let name = name.to_string();
