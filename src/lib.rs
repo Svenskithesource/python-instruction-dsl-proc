@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     Expr, Ident, LitInt, Token, bracketed, parenthesized, parse::Parse, parse_macro_input,
-    token::Paren,
+    spanned::Spanned,
 };
 
 #[derive(Clone)]
@@ -292,6 +292,187 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
         }
     };
+
+    let mut input_sirs = vec![];
+    let mut output_sirs = vec![];
+
+    for (opcode, name) in opcodes.iter().zip(names) {
+        let mut input_constructor_fields = vec![];
+        let mut output_constructor_fields = vec![];
+
+        if let Some(stack_effect) = &opcode.stack_effect {
+            let mut index = quote! { 0 };
+            for pop in stack_effect.pops.iter().rev() {
+                match pop {
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        input_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
+                    }
+                    StackItem::NameCounted(name, count) => {
+                        let name = name.to_string();
+                        input_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
+                    }
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
+                }
+            }
+
+            input_constructor_fields.reverse();
+
+            let mut index = quote! { 0 };
+            for push in stack_effect.pushes.iter().rev() {
+                match push {
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        output_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
+                    }
+                    StackItem::NameCounted(name, count) => {
+                        let name = name.to_string();
+                        output_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
+                    }
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
+                }
+            }
+        }
+
+        input_sirs.push(quote! { Opcode::#name => vec![
+            #(
+                #input_constructor_fields
+            ),*
+        ] });
+
+        output_sirs.push(quote! { Opcode::#name => vec![
+            #(
+                #output_constructor_fields
+            ),*
+        ] });
+    }
+
+    let sir = quote! {
+        pub mod sir {
+            use super::{Opcode};
+            use crate::sir::{SIR, StackItem, SIRStatement, Call, SIRExpression, AuxVar};
+            use crate::traits::{GenericSIRNode, SIROwned};
+
+
+            #[derive(PartialEq, Debug, Clone)]
+            pub struct SIRNode {
+                pub opcode: Opcode,
+                pub oparg: u32,
+                pub input: Vec<StackItem>,
+                pub output: Vec<StackItem>,
+            }
+
+            impl SIRNode {
+                pub fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
+                    // This comes from the Python DSL where it is used to calculate the max stack usage possible. We intentionally disable it here.
+                    let calculate_max = false;
+
+                    let input = match opcode {
+                        #(
+                            #input_sirs
+                        ),*,
+                        Opcode::INVALID_OPCODE(_) => vec![],
+                    };
+
+                    let output = match opcode {
+                        #(
+                            #output_sirs
+                        ),*,
+                        Opcode::INVALID_OPCODE(_) => vec![],
+                    };
+
+                    Self {
+                        opcode,
+                        oparg,
+                        input,
+                        output,
+                    }
+                }
+            }
+
+            impl GenericSIRNode for SIRNode {
+                type Opcode = Opcode;
+
+                fn new(opcode: Self::Opcode, oparg: u32, jump: bool) -> Self {
+                    SIRNode::new(opcode, oparg, jump)
+                }
+
+                fn get_outputs(&self) -> &[StackItem] {
+                    &self.output
+                }
+
+                fn get_inputs(&self) -> &[StackItem] {
+                    &self.input
+                }
+            }
+
+            impl SIROwned<SIRNode> for SIR<SIRNode> {
+                fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
+                    SIR(statements)
+                }
+            }
+
+            impl std::fmt::Display for SIR<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    for statement in &self.0 {
+                        match statement {
+                            SIRStatement::Assignment(aux_var, call) => {
+                                writeln!(f, "{} = {}", aux_var.name, call)?;
+                            }
+                            SIRStatement::TupleAssignment(aux_vars, call) => {
+                                let vars = aux_vars.iter().map(|v| v.name.clone()).collect::<Vec<_>>().join(", ");
+                                writeln!(f, "({}) = {}", vars, call)?;
+                            }
+                            SIRStatement::DisregardCall(call) => {
+                                writeln!(f, "{}", call)?;
+                            }
+                        }
+                    }
+                    Ok(())
+                }
+            }
+
+            impl std::fmt::Display for Call<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let mut inputs = self
+                        .stack_inputs
+                        .iter()
+                        .map(|input| format!("{}", input))
+                        .collect::<Vec<_>>();
+
+                    inputs.push(format!("{}", self.node.oparg));
+
+                    write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "))
+                }
+            }
+
+            impl std::fmt::Display for SIRExpression<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        SIRExpression::Call(call) => write!(f, "{}", call),
+                        SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
+                        SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
+                    }
+                }
+            }
+        }
+    };
+
+    expanded.extend(sir);
 
     expanded.into()
 }
