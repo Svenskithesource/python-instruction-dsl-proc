@@ -246,20 +246,9 @@ dependencies = [
  "num-complex",
  "ordered-float",
  "paste",
- "python-instruction-dsl-proc 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "python-instruction-dsl-proc 0.1.7",
  "python_marshal",
  "store-interval-tree",
-]
-
-[[package]]
-name = "python-instruction-dsl-proc"
-version = "0.1.7"
-dependencies = [
- "heck",
- "paste",
- "pyc_editor",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -270,6 +259,17 @@ checksum = "cb3673c5026e80beaf0d187a946d79c63ac1ecbd456586eb35171916d674f3c8"
 dependencies = [
  "heck",
  "paste",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "python-instruction-dsl-proc"
+version = "0.1.8"
+dependencies = [
+ "heck",
+ "paste",
+ "pyc_editor",
  "quote",
  "syn",
 ]
