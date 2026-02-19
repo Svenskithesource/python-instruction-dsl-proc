@@ -554,7 +554,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         pub mod sir {
             use super::{Opcode};
             use crate::sir::{SIR, StackItem, SIRStatement, ExceptionCall, Call, SIRExpression, AuxVar};
-            use crate::traits::{GenericSIRNode, SIROwned};
+            use crate::traits::{GenericSIRNode, SIROwned, GenericSIRException};
 
 
             #[derive(PartialEq, Debug, Clone)]
