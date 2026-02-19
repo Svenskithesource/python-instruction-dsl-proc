@@ -489,12 +489,33 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     }
                 }
             }
+
+            impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let mut inputs = self
+                        .stack_inputs
+                        .iter()
+                        .map(|input| format!("{}", input))
+                        .collect::<Vec<_>>();
+
+                    inputs.push(format!("{}", self.node.oparg));
+
+                    write!(f, "EXCEPTION({})", inputs.join(", "))
+                }
+            }
         }
     } else {
         quote! {#[derive(PartialEq, Debug, Clone)]
             /// This does not exist in versions without an exception_table
             pub struct SIRException {
-            }}
+            }
+
+            impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    unreachable!()
+                }
+            }
+        }
     };
 
     let sir = quote! {
@@ -602,7 +623,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
                         SIRExpression::Call(call) => write!(f, "{}", call),
-                        SIRExpression::Exception(_) => write!(f, "EXCEPTION"),
+                        SIRExpression::Exception(exception_call) => write!(f, "{}", exception_call),
                         SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
                         SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
                     }
