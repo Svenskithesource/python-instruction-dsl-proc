@@ -491,7 +491,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
 
             impl GenericSIRException for SIRException {
-                type Opcode: Opcode;
+                type Opcode = Opcode;
 
                 fn new(lasti: bool) -> Self {
                     SIRException::new(lasti)
@@ -533,7 +533,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
 
             impl GenericSIRException for SIRException {
-                type Opcode: Opcode;
+                type Opcode = Opcode;
 
                 fn new(lasti: bool) -> Self {
                     SIRException {}
