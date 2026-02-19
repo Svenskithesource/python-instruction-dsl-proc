@@ -7,3 +7,5 @@ It only supports a subset of the full syntax. This is meant to be used by the [p
 ## Custom modification
 
 For the purpose of the `pyc-editor` library, you may also use `( / )` to indicate this opcode is not supported. (used for specified opcodes)
+
+You can also have `*EXCEPTION ( -- exception )` to specify what values are pushed to the stack when an exception is raised (for 3.11+). 
