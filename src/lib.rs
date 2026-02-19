@@ -521,7 +521,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     let sir = quote! {
         pub mod sir {
             use super::{Opcode};
-            use crate::sir::{SIR, StackItem, SIRStatement, Call, SIRExpression, AuxVar};
+            use crate::sir::{SIR, StackItem, SIRStatement, ExceptionCall, Call, SIRExpression, AuxVar};
             use crate::traits::{GenericSIRNode, SIROwned};
 
 
