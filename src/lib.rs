@@ -558,7 +558,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl SIROwned<SIRNode> for SIR<SIRNode> {
+            impl SIROwned<SIRNode> for SIR<SIRNode, SIRException> {
                 fn new(statements: Vec<SIRStatement<SIRNode, SIRException>>) -> Self {
                     SIR(statements)
                 }
