@@ -514,7 +514,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         .map(|input| format!("{}", input))
                         .collect::<Vec<_>>();
 
-                    inputs.push(format!("{}", self.node.oparg));
+                    inputs.push(format!("{}", self.exception.lasti));
 
                     write!(f, "EXCEPTION({})", inputs.join(", "))
                 }
