@@ -403,11 +403,14 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
     };
 
-    fn collect_stack_effect(stack_items: &[StackItem]) -> Vec<proc_macro2::TokenStream> {
+    fn collect_stack_effect<'a, T>(stack_items: T) -> Vec<proc_macro2::TokenStream>
+    where
+        T: DoubleEndedIterator<Item = &'a StackItem>,
+    {
         let mut index = quote! { 0 };
         let mut fields = vec![];
 
-        for pop in stack_items.iter().rev() {
+        for pop in stack_items.rev() {
             match pop {
                 StackItem::Name(name) => {
                     let name = name.to_string();
@@ -436,11 +439,11 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let mut output_constructor_fields = vec![];
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            input_constructor_fields = collect_stack_effect(&stack_effect.pops);
+            input_constructor_fields = collect_stack_effect(stack_effect.pops.iter());
 
             input_constructor_fields.reverse();
 
-            output_constructor_fields = collect_stack_effect(&stack_effect.pushes);
+            output_constructor_fields = collect_stack_effect(stack_effect.pushes.iter().rev());
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -457,8 +460,11 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     }
 
     let sir_exception = if let Some(exception) = exception {
-        let input_fields = collect_stack_effect(&exception.stack_effect.pops);
-        let output_fields = collect_stack_effect(&exception.stack_effect.pushes);
+        let mut input_fields = collect_stack_effect(exception.stack_effect.pops.iter());
+
+        input_fields.reverse();
+
+        let output_fields = collect_stack_effect(exception.stack_effect.pushes.iter().rev());
 
         quote! {
             #[derive(PartialEq, Debug, Clone)]
