@@ -423,7 +423,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 StackItem::NameCounted(name, count) => {
                     let name = name.to_string();
                     let temp_index = if is_reverse {
-                        quote! { (#index) - ((#count) as u32).saturating_sub(1) }
+                        quote! { (#index) + ((#count) as u32).saturating_sub(1) }
                     } else {
                         quote! { #index }
                     };
