@@ -403,7 +403,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
     };
 
-    fn collect_stack_effect<'a, T>(stack_items: T) -> Vec<proc_macro2::TokenStream>
+    fn collect_stack_effect<'a, T>(
+        stack_items: T,
+        is_reverse: bool,
+    ) -> Vec<proc_macro2::TokenStream>
     where
         T: DoubleEndedIterator<Item = &'a StackItem>,
     {
@@ -419,9 +422,16 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
                 StackItem::NameCounted(name, count) => {
                     let name = name.to_string();
-                    fields.push(quote! { StackItem { name: #name, count: #count, index: #index - ((#count) - 1)  } });
+                    let temp_index = if is_reverse {
+                        quote! { (#index) - (#count).saturating_sub(1) }
+                    } else {
+                        quote! { #index }
+                    };
+
+                    fields.push(
+                        quote! { StackItem { name: #name, count: #count, index: #temp_index  } },
+                    );
                     index = quote! { (#index) + (#count) };
-                    
                 }
                 StackItem::Unused(count) => {
                     index = quote! { (#index) + (#count) };
@@ -440,11 +450,12 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let mut output_constructor_fields = vec![];
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            input_constructor_fields = collect_stack_effect(stack_effect.pops.iter());
+            input_constructor_fields = collect_stack_effect(stack_effect.pops.iter(), false);
 
             input_constructor_fields.reverse();
 
-            output_constructor_fields = collect_stack_effect(stack_effect.pushes.iter().rev());
+            output_constructor_fields =
+                collect_stack_effect(stack_effect.pushes.iter().rev(), true);
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -461,11 +472,11 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     }
 
     let sir_exception = if let Some(exception) = exception {
-        let mut input_fields = collect_stack_effect(exception.stack_effect.pops.iter());
+        let mut input_fields = collect_stack_effect(exception.stack_effect.pops.iter(), false);
 
         input_fields.reverse();
 
-        let output_fields = collect_stack_effect(exception.stack_effect.pushes.iter().rev());
+        let output_fields = collect_stack_effect(exception.stack_effect.pushes.iter().rev(), true);
 
         quote! {
             #[derive(PartialEq, Debug, Clone)]
