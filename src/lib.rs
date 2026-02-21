@@ -419,11 +419,12 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
                 StackItem::NameCounted(name, count) => {
                     let name = name.to_string();
-                    fields.push(quote! { StackItem { name: #name, count: #count, index: #index } });
-                    index = quote! { (#index) + #count };
+                    fields.push(quote! { StackItem { name: #name, count: #count, index: #index - ((#count) - 1)  } });
+                    index = quote! { (#index) + (#count) };
+                    
                 }
                 StackItem::Unused(count) => {
-                    index = quote! { (#index) + #count };
+                    index = quote! { (#index) + (#count) };
                 }
             }
         }
@@ -475,7 +476,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
 
             impl SIRException {
-                pub fn new(lasti: bool) -> Self {
+                pub fn new(lasti: bool, jump: bool) -> Self {
                     let input = vec![
                         #(
                             #input_fields
@@ -499,8 +500,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             impl GenericSIRException for SIRException {
                 type Opcode = Opcode;
 
-                fn new(lasti: bool) -> Self {
-                    SIRException::new(lasti)
+                fn new(lasti: bool, jump: bool) -> Self {
+                    SIRException::new(lasti, jump)
                 }
 
                 fn get_outputs(&self) -> &[StackItem] {
@@ -541,7 +542,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             impl GenericSIRException for SIRException {
                 type Opcode = Opcode;
 
-                fn new(lasti: bool) -> Self {
+                fn new(lasti: bool, jump: bool) -> Self {
                     SIRException {}
                 }
 
