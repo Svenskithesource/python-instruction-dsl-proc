@@ -598,11 +598,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl std::fmt::Display for SIRExpression<SIRNode, SIRException> {
+            impl std::fmt::Display for SIRExpression<SIRNode, SIRExpression> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
                         SIRExpression::Call(call) => write!(f, "{}", call),
-                        SIRExpression::Exception(_) => write!(f, "EXCEPTION"),
                         SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
                         SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
                     }
