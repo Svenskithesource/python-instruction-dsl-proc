@@ -491,10 +491,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
         }
     } else {
-        quote! {#[derive(PartialEq, Debug, Clone)]
-            /// This does not exist in versions without an exception_table
-            pub struct SIRException {
-            }}
+        quote! {}
     };
 
     let sir = quote! {
@@ -559,7 +556,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             }
 
             impl SIROwned<SIRNode> for SIR<SIRNode> {
-                fn new(statements: Vec<SIRStatement<SIRNode, SIRException>>) -> Self {
+                fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
                     SIR(statements)
                 }
             }
@@ -598,7 +595,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl std::fmt::Display for SIRExpression<SIRNode, SIRExpression> {
+            impl std::fmt::Display for SIRExpression<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
                         SIRExpression::Call(call) => write!(f, "{}", call),
