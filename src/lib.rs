@@ -28,10 +28,6 @@ struct Opcode {
     stack_effect: Option<StackEffect>,
 }
 
-struct Exception {
-    stack_effect: StackEffect,
-}
-
 impl Parse for Opcode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         // Example: LOAD_CONST = 100 ( -- constant)
@@ -144,129 +140,23 @@ impl Parse for Opcode {
     }
 }
 
-impl Parse for Exception {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        // Special parsing for custom exception specification
-        // Example: *EXCEPTION ( -- lasti[if lasti {1} else {0}], exception)
-
-        input.parse::<Token![*]>()?;
-        syn::custom_keyword!(EXCEPTION);
-        input.parse::<EXCEPTION>()?;
-
-        let inner_stack_effect;
-
-        parenthesized!(inner_stack_effect in input);
-
-        let mut stack_effect = StackEffect {
-            pops: vec![],
-            pushes: vec![],
-        };
-
-        // Pops
-        while inner_stack_effect.peek(Ident) {
-            let name: Ident = inner_stack_effect.parse()?;
-
-            stack_effect.pops.push(
-                // This name is special, see the reference document on GitHub.
-                if name == "unused" {
-                    if inner_stack_effect.peek(syn::token::Bracket) {
-                        let inner_bracket;
-                        bracketed!(inner_bracket in inner_stack_effect);
-                        let size: Expr = inner_bracket.parse()?;
-                        StackItem::Unused(size)
-                    } else {
-                        StackItem::Unused(Expr::Lit(syn::ExprLit {
-                            attrs: vec![],
-                            lit: syn::Lit::Int(LitInt::new(
-                                "1",
-                                proc_macro::Span::call_site().into(),
-                            )),
-                        }))
-                    }
-                } else {
-                    if inner_stack_effect.peek(syn::token::Bracket) {
-                        let inner_bracket;
-                        bracketed!(inner_bracket in inner_stack_effect);
-                        let size: Expr = inner_bracket.parse()?;
-                        StackItem::NameCounted(name, size)
-                    } else {
-                        StackItem::Name(name)
-                    }
-                },
-            );
-
-            if inner_stack_effect.parse::<Token![,]>().is_err() {
-                break;
-            }
-        }
-
-        inner_stack_effect.parse::<Token![-]>()?;
-        inner_stack_effect.parse::<Token![-]>()?;
-
-        while inner_stack_effect.peek(Ident) {
-            let name: Ident = inner_stack_effect.parse()?;
-
-            stack_effect.pushes.push(
-                // This name is special, see the reference document on GitHub.
-                if name == "unused" {
-                    if inner_stack_effect.peek(syn::token::Bracket) {
-                        let inner_bracket;
-                        bracketed!(inner_bracket in inner_stack_effect);
-                        let size: Expr = inner_bracket.parse()?;
-                        StackItem::Unused(size)
-                    } else {
-                        StackItem::Unused(Expr::Lit(syn::ExprLit {
-                            attrs: vec![],
-                            lit: syn::Lit::Int(LitInt::new(
-                                "1",
-                                proc_macro::Span::call_site().into(),
-                            )),
-                        }))
-                    }
-                } else {
-                    if inner_stack_effect.peek(syn::token::Bracket) {
-                        let inner_bracket;
-                        bracketed!(inner_bracket in inner_stack_effect);
-                        let size: Expr = inner_bracket.parse()?;
-                        StackItem::NameCounted(name, size)
-                    } else {
-                        StackItem::Name(name)
-                    }
-                },
-            );
-
-            if inner_stack_effect.parse::<Token![,]>().is_err() {
-                break;
-            }
-        }
-
-        Ok(Exception { stack_effect })
-    }
-}
-
 struct Opcodes {
     opcodes: Vec<Opcode>,
-    exception: Option<Exception>,
 }
 
 impl Parse for Opcodes {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut opcodes = vec![];
-        let mut exception = None;
 
         loop {
-            if input.peek(Token![*]) {
-                exception = Some(Exception::parse(input)?);
-            } else {
-                opcodes.push(Opcode::parse(input)?);
-            }
+            opcodes.push(Opcode::parse(input)?);
 
             if input.parse::<Token![,]>().is_err() || input.is_empty() {
                 break;
             }
         }
 
-        Ok(Opcodes { opcodes, exception })
+        Ok(Opcodes { opcodes })
     }
 }
 
@@ -304,7 +194,7 @@ fn sum_items(items: &[StackItem]) -> Expr {
 
 #[proc_macro]
 pub fn define_opcodes(input: TokenStream) -> TokenStream {
-    let Opcodes { opcodes, exception } = parse_macro_input!(input as Opcodes);
+    let Opcodes { opcodes } = parse_macro_input!(input as Opcodes);
 
     let opcodes_with_stack: Vec<_> = opcodes
         .iter()
@@ -403,31 +293,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
     };
 
-    fn collect_stack_effect(stack_items: &[StackItem]) -> Vec<proc_macro2::TokenStream> {
-        let mut index = quote! { 0 };
-        let mut fields = vec![];
-
-        for pop in stack_items.iter().rev() {
-            match pop {
-                StackItem::Name(name) => {
-                    let name = name.to_string();
-                    fields.push(quote! { StackItem { name: #name, count: 1, index: #index } });
-                    index = quote! { (#index) + 1 };
-                }
-                StackItem::NameCounted(name, count) => {
-                    let name = name.to_string();
-                    fields.push(quote! { StackItem { name: #name, count: #count, index: #index } });
-                    index = quote! { (#index) + #count };
-                }
-                StackItem::Unused(count) => {
-                    index = quote! { (#index) + #count };
-                }
-            }
-        }
-
-        fields
-    }
-
     let mut input_sirs = vec![];
     let mut output_sirs = vec![];
 
@@ -436,11 +301,51 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let mut output_constructor_fields = vec![];
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            input_constructor_fields = collect_stack_effect(&stack_effect.pops);
+            let mut index = quote! { 0 };
+            for pop in stack_effect.pops.iter().rev() {
+                match pop {
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        input_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
+                    }
+                    StackItem::NameCounted(name, count) => {
+                        let name = name.to_string();
+                        input_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
+                    }
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
+                }
+            }
 
             input_constructor_fields.reverse();
 
-            output_constructor_fields = collect_stack_effect(&stack_effect.pushes);
+            let mut index = quote! { 0 };
+            for push in stack_effect.pushes.iter().rev() {
+                match push {
+                    StackItem::Name(name) => {
+                        let name = name.to_string();
+                        output_constructor_fields
+                            .push(quote! { StackItem { name: #name, count: 1, index: #index } });
+                        index = quote! { (#index) + 1 };
+                    }
+                    StackItem::NameCounted(name, count) => {
+                        let name = name.to_string();
+                        output_constructor_fields.push(
+                            quote! { StackItem { name: #name, count: #count, index: #index } },
+                        );
+                        index = quote! { (#index) + #count };
+                    }
+                    StackItem::Unused(count) => {
+                        index = quote! { (#index) + #count };
+                    }
+                }
+            }
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -455,44 +360,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             ),*
         ] });
     }
-
-    let sir_exception = if let Some(exception) = exception {
-        let input_fields = collect_stack_effect(&exception.stack_effect.pops);
-        let output_fields = collect_stack_effect(&exception.stack_effect.pushes);
-
-        quote! {
-            #[derive(PartialEq, Debug, Clone)]
-            pub struct SIRException {
-                pub lasti: bool,
-                pub input: Vec<StackItem>,
-                pub output: Vec<StackItem>,
-            }
-
-            impl SIRException {
-                pub fn new(lasti: bool) -> Self {
-                    let input = vec![
-                        #(
-                            #input_fields
-                        ),*
-                    ];
-
-                    let output = vec![
-                        #(
-                            #output_fields
-                        ),*
-                    ];
-
-                    Self {
-                        lasti,
-                        input,
-                        output,
-                    }
-                }
-            }
-        }
-    } else {
-        quote! {}
-    };
 
     let sir = quote! {
         pub mod sir {
@@ -536,8 +403,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-
-            #sir_exception
 
             impl GenericSIRNode for SIRNode {
                 type Opcode = Opcode;
