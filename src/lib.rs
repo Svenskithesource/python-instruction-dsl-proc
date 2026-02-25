@@ -490,22 +490,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl GenericSIRException for SIRException {
-                type Opcode: Opcode;
-
-                fn new(lasti: bool) -> Self {
-                    SIRException::new(lasti)
-                }
-
-                fn get_outputs(&self) -> &[StackItem] {
-                    &self.output
-                }
-
-                fn get_inputs(&self) -> &[StackItem] {
-                    &self.input
-                }
-            }
-
             impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     let mut inputs = self
@@ -529,22 +513,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     unreachable!()
-                }
-            }
-
-            impl GenericSIRException for SIRException {
-                type Opcode: Opcode;
-
-                fn new(lasti: bool) -> Self {
-                    SIRException {}
-                }
-
-                fn get_outputs(&self) -> &[StackItem] {
-                    &[]
-                }
-
-                fn get_inputs(&self) -> &[StackItem] {
-                    &[]
                 }
             }
         }
