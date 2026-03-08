@@ -665,6 +665,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         SIRExpression::Exception(exception_call) => write!(f, "{}", exception_call),
                         SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
                         SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
+                        SIRExpression::GeneratorStart => write!(f, "GenStart()"),
                     }
                 }
             }
