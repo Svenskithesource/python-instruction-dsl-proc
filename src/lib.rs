@@ -449,10 +449,12 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
     let mut input_sirs = vec![];
     let mut output_sirs = vec![];
+    let mut stack_deltas = vec![];
 
     for (opcode, name) in opcodes.iter().zip(names) {
         let mut input_constructor_fields = vec![];
         let mut output_constructor_fields = vec![];
+        let mut stack_delta = quote! { 0 };
 
         if let Some(stack_effect) = &opcode.stack_effect {
             let input_offset;
@@ -463,6 +465,11 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             (output_constructor_fields, _) =
                 collect_stack_effect(stack_effect.pushes.iter().rev(), Some(input_offset));
+
+            let pushes = sum_items(&stack_effect.pushes);
+            let pops = sum_items(&stack_effect.pops);
+
+            stack_delta = quote! { #pushes - #pops};
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -476,6 +483,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 #output_constructor_fields
             ),*
         ] });
+
+        stack_deltas.push(quote! { Opcode::#name => #stack_delta });
     }
 
     let sir_exception = if let Some(exception) = exception {
@@ -489,12 +498,18 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             Some(input_offset),
         );
 
+        let pushes = sum_items(&exception.stack_effect.pushes);
+        let pops = sum_items(&exception.stack_effect.pops);
+
+        let stack_delta = quote! { #pushes - #pops};
+
         quote! {
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRException {
                 pub lasti: bool,
                 pub input: Vec<StackItem>,
                 pub output: Vec<StackItem>,
+                pub net_stack_delta: isize
             }
 
             impl SIRException {
@@ -511,10 +526,13 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         ),*
                     ];
 
+                    let net_stack_delta = #stack_delta;
+
                     Self {
                         lasti,
                         input,
                         output,
+                        net_stack_delta,
                     }
                 }
             }
@@ -532,6 +550,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                 fn get_inputs(&self) -> &[StackItem] {
                     &self.input
+                }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    &self.net_stack_delta
                 }
             }
 
@@ -552,6 +574,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     } else {
         quote! {#[derive(PartialEq, Debug, Clone)]
             /// This does not exist in versions without an exception_table
+            /// So we generate an empty version of it
             pub struct SIRException {
             }
 
@@ -575,6 +598,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 fn get_inputs(&self) -> &[StackItem] {
                     &[]
                 }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    0
+                }
             }
         }
     };
@@ -592,6 +619,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 pub oparg: u32,
                 pub input: Vec<StackItem>,
                 pub output: Vec<StackItem>,
+                pub net_stack_delta: isize
             }
 
             impl SIRNode {
@@ -613,11 +641,14 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         Opcode::INVALID_OPCODE(_) => vec![],
                     };
 
+                    let net_stack_delta = sum_items(output) - sum_items(input);
+
                     Self {
                         opcode,
                         oparg,
                         input,
                         output,
+                        net_stack_delta
                     }
                 }
             }
@@ -637,6 +668,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                 fn get_inputs(&self) -> &[StackItem] {
                     &self.input
+                }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    &self.net_stack_delta
                 }
             }
 
