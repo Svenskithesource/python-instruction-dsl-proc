@@ -641,7 +641,11 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         Opcode::INVALID_OPCODE(_) => vec![],
                     };
 
-                    let net_stack_delta = sum_items(output) - sum_items(input);
+                    let net_stack_delta = match opcode {
+                        #(
+                            #stack_deltas
+                        ),*,
+                    };
 
                     Self {
                         opcode,
