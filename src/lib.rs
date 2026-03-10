@@ -553,7 +553,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_net_stack_delta(&self) -> isize {
-                    &self.net_stack_delta
+                    self.net_stack_delta
                 }
             }
 
@@ -676,7 +676,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_net_stack_delta(&self) -> isize {
-                    &self.net_stack_delta
+                    self.net_stack_delta
                 }
             }
 
