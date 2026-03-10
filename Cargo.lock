@@ -234,9 +234,8 @@ dependencies = [
 
 [[package]]
 name = "pyc_editor"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94881c2cba6246d33068188ac7da2f601098013fb476501afa888ab53c966772"
+version = "0.4.2"
+source = "git+https://github.com/Svenskithesource/pyc-editor?branch=new-sir-stack-emulation#1cf7dec471775a9d07133fe31f9d832c87dd4129"
 dependencies = [
  "bitflags",
  "displaydoc",

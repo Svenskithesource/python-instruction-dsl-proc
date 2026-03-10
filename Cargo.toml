@@ -18,4 +18,4 @@ quote = "1.0.42"
 syn = { version = "2.0.111", features = ["full"] }
 
 [dev-dependencies]
-pyc_editor = { version = "0.4.2", features = ["v310"] }
+pyc_editor = { git = "https://github.com/Svenskithesource/pyc-editor", branch = "new-sir-stack-emulation", features = ["v310"] }

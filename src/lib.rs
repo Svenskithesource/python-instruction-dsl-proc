@@ -308,12 +308,9 @@ where
 {
     let mut index = quote! { 0 };
 
-    let mut prev_index = index.clone();
-
     let mut fields = vec![];
 
     for pop in stack_items.rev() {
-        prev_index = index.clone();
         let count = match pop {
             StackItem::Name(name) => {
                 let name = name.to_string();
@@ -325,7 +322,7 @@ where
                 let name = name.to_string();
 
                 fields.push(
-                    quote! { StackItem { name: #name, count: #count, index: (#index) - #count } },
+                    quote! { StackItem { name: #name, count: #count, index: (#index) - (#count as isize) } },
                 );
                 quote! { #count }
             }
@@ -798,7 +795,7 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[0]),
-            "StackItem { name : \"out\" , count : 5 , index : ((0) - 1) - 5 }"
+            "StackItem { name : \"out\" , count : 5 , index : ((0) - 1) - (5 as isize) }"
         );
 
         assert_eq!(
