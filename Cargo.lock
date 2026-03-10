@@ -104,9 +104,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.182"
+version = "0.2.183"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
+checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
 
 [[package]]
 name = "log"
@@ -234,9 +234,9 @@ dependencies = [
 
 [[package]]
 name = "pyc_editor"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd73d4ea01d26298d27f53e845189cc2b87364d5c8d90c8ed661c0c10c6f1abd"
+checksum = "94881c2cba6246d33068188ac7da2f601098013fb476501afa888ab53c966772"
 dependencies = [
  "bitflags",
  "displaydoc",
@@ -246,14 +246,14 @@ dependencies = [
  "num-complex",
  "ordered-float",
  "paste",
- "python-instruction-dsl-proc 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "python-instruction-dsl-proc 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "python_marshal",
  "store-interval-tree",
 ]
 
 [[package]]
 name = "python-instruction-dsl-proc"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "heck",
  "paste",
@@ -265,9 +265,9 @@ dependencies = [
 
 [[package]]
 name = "python-instruction-dsl-proc"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac41fbd1928a69603d2a2b0a165a6daef9f7c658240bfe198b29b998a603916e"
+checksum = "d06958e132b21dd262fac1a1d8502883b01a191c6d0fecfd4cb4fba7402c1e35"
 dependencies = [
  "heck",
  "paste",
@@ -295,9 +295,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.44"
+version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b2ebcf727b7760c461f091f9f0f539b77b8e87f2fd88131e7f1b433b3cece4"
+checksum = "41f2619966050689382d2b44f664f4bc593e129785a36d6ee376ddf37259b924"
 dependencies = [
  "proc-macro2",
 ]
@@ -348,9 +348,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.116"
+version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3df424c70518695237746f84cede799c9c58fcb37450d7b23716568cc8bc69cb"
+checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
 dependencies = [
  "proc-macro2",
  "quote",
