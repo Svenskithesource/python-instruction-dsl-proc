@@ -322,7 +322,7 @@ where
                 let name = name.to_string();
 
                 fields.push(
-                    quote! { StackItem { name: #name, count: #count, index: (#index) - #count } },
+                    quote! { StackItem { name: #name, count: (#count) as u32, index: (#index) - #count } },
                 );
                 quote! { #count }
             }
