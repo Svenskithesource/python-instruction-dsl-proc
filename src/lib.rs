@@ -338,7 +338,7 @@ where
                 let name = name.to_string();
 
                 let new_index = if index_offset.is_none() {
-                    quote! { (#index) - #count }
+                    quote! { (#index) - (#count) }
                 } else {
                     index.clone()
                 };
@@ -352,9 +352,9 @@ where
         };
 
         if index_offset.is_none() {
-            index = quote! { (#index) - #count };
+            index = quote! { (#index) - (#count) };
         } else {
-            index = quote! { (#index) + #count };
+            index = quote! { (#index) + (#count) };
         }
     }
 
@@ -839,6 +839,50 @@ mod tests {
         assert_eq!(
             format!("{}", output_fields[1]),
             "StackItem { name : \"out2\" , count : 1 , index : (((0) - 1) - 5) + 5 }"
+        );
+
+        for output_field in output_fields {
+            println!("{}", output_field);
+        }
+    }
+
+    #[test]
+    fn test_stack_effect_copy() {
+        // Emulates the `COPY 3`` instruction
+        let inputs = [
+            StackItem::Name(Ident::new("bottom", Span::call_site())),
+            StackItem::Unused(syn::Expr::Lit(syn::ExprLit {
+                attrs: vec![],
+                lit: syn::Lit::Int(syn::LitInt::new("2", Span::call_site().into())),
+            })),
+        ];
+
+        let outputs = [
+            StackItem::Name(Ident::new("bottom", Span::call_site())),
+            StackItem::Unused(syn::Expr::Lit(syn::ExprLit {
+                attrs: vec![],
+                lit: syn::Lit::Int(syn::LitInt::new("2", Span::call_site().into())),
+            })),
+            StackItem::Name(Ident::new("top", Span::call_site())),
+        ];
+
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
+
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
+
+        for input_field in input_fields {
+            println!("{}", input_field);
+        }
+
+        assert_eq!(
+            format!("{}", output_fields[0]),
+            "StackItem { name : \"bottom\" , count : 1 , index : ((0) - (2)) - (1) }"
+        );
+
+        assert_eq!(
+            format!("{}", output_fields[1]),
+            "StackItem { name : \"top\" , count : 1 , index : ((((0) - (2)) - (1)) + (1)) + (2) }"
         );
 
         for output_field in output_fields {
