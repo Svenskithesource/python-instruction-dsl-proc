@@ -469,7 +469,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             let pushes = sum_items(&stack_effect.pushes);
             let pops = sum_items(&stack_effect.pops);
 
-            stack_delta = quote! { #pushes - #pops};
+            stack_delta = quote! { (#pushes) as isize - (#pops) as isize};
         }
 
         input_sirs.push(quote! { Opcode::#name => vec![
@@ -501,7 +501,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let pushes = sum_items(&exception.stack_effect.pushes);
         let pops = sum_items(&exception.stack_effect.pops);
 
-        let stack_delta = quote! { #pushes - #pops};
+        let stack_delta = quote! { (#pushes) as isize - (#pops) as isize};
 
         quote! {
             #[derive(PartialEq, Debug, Clone)]
@@ -645,6 +645,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                         #(
                             #stack_deltas
                         ),*,
+                        Opcode::INVALID_OPCODE(_) => 0,
                     };
 
                     Self {
