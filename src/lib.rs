@@ -324,13 +324,26 @@ where
         let count = match pop {
             StackItem::Name(name) => {
                 let name = name.to_string();
-                fields.push(quote! { StackItem { name: #name, count: 1, index: #index } });
+
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - 1 }
+                } else {
+                    index.clone()
+                };
+
+                fields.push(quote! { StackItem { name: #name, count: 1, index: #new_index } });
                 quote! { 1 }
             }
             StackItem::NameCounted(name, count) => {
                 let name = name.to_string();
 
-                fields.push(quote! { StackItem { name: #name, count: #count, index: #index } });
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - #count }
+                } else {
+                    index.clone()
+                };
+
+                fields.push(quote! { StackItem { name: #name, count: #count, index: #new_index } });
                 quote! { #count }
             }
             StackItem::Unused(count) => quote! { #count },
@@ -464,7 +477,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             input_constructor_fields.reverse();
 
             (output_constructor_fields, _) =
-                collect_stack_effect(stack_effect.pushes.iter().rev(), Some(input_offset));
+                collect_stack_effect(stack_effect.pushes.iter(), Some(input_offset));
 
             let pushes = sum_items(&stack_effect.pushes);
             let pops = sum_items(&stack_effect.pops);
@@ -493,10 +506,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
         input_fields.reverse();
 
-        let (output_fields, _) = collect_stack_effect(
-            exception.stack_effect.pushes.iter().rev(),
-            Some(input_offset),
-        );
+        let (output_fields, _) =
+            collect_stack_effect(exception.stack_effect.pushes.iter(), Some(input_offset));
 
         let pushes = sum_items(&exception.stack_effect.pushes);
         let pops = sum_items(&exception.stack_effect.pops);
@@ -777,6 +788,56 @@ mod tests {
         assert_eq!(
             format!("{}", output_fields[1]),
             "StackItem { name : \"out2\" , count : 1 , index : ((0) - 1) + 1 }"
+        );
+
+        for output_field in output_fields {
+            println!("{}", output_field);
+        }
+    }
+
+    #[test]
+    fn test_stack_effect2() {
+        let inputs = [
+            StackItem::NameCounted(
+                Ident::new("first", Span::call_site()),
+                syn::Expr::Lit(syn::ExprLit {
+                    attrs: vec![],
+                    lit: syn::Lit::Int(syn::LitInt::new("5", Span::call_site().into())),
+                }),
+            ),
+            StackItem::Name(Ident::new("second", Span::call_site())),
+        ];
+
+        let outputs = [
+            StackItem::NameCounted(
+                Ident::new("out", Span::call_site()),
+                syn::Expr::Lit(syn::ExprLit {
+                    attrs: vec![],
+                    lit: syn::Lit::Int(syn::LitInt::new("5", Span::call_site().into())),
+                }),
+            ),
+            StackItem::Name(Ident::new("out2", Span::call_site())),
+        ];
+
+        let (mut input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
+
+        input_fields.reverse();
+
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
+
+        for input_field in input_fields {
+            println!("{}", input_field);
+        }
+
+        assert_eq!(
+            format!("{}", output_fields[0]),
+            "StackItem { name : \"out\" , count : 5 , index : (0) - 1 }"
+        );
+
+        assert_eq!(
+            format!("{}", output_fields[1]),
+            "StackItem { name : \"out2\" , count : 1 , index : ((0) - 1) + 5 }"
         );
 
         for output_field in output_fields {
