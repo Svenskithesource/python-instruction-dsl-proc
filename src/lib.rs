@@ -322,7 +322,7 @@ where
                 let name = name.to_string();
 
                 fields.push(
-                    quote! { StackItem { name: #name, count: #count, index: (#index) - (#count as isize) } },
+                    quote! { StackItem { name: #name, count: #count, index: (#index) - #count } },
                 );
                 quote! { #count }
             }
@@ -606,6 +606,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 pub fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
                     // This comes from the Python DSL where it is used to calculate the max stack usage possible. We intentionally disable it here.
                     let calculate_max = false;
+                    let oparg = oparg as isize;
 
                     let input = match opcode {
                         #(
@@ -795,7 +796,7 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[0]),
-            "StackItem { name : \"out\" , count : 5 , index : ((0) - 1) - (5 as isize) }"
+            "StackItem { name : \"out\" , count : 5 , index : ((0) - 1) - 5 }"
         );
 
         assert_eq!(
