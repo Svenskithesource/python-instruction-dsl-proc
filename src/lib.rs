@@ -631,7 +631,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                     Self {
                         opcode,
-                        oparg,
+                        oparg: oparg as u32,
                         input,
                         output,
                         net_stack_delta
