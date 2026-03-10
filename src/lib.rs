@@ -302,39 +302,67 @@ fn sum_items(items: &[StackItem]) -> Expr {
     }
 }
 
-fn collect_stack_effect<'a, T>(stack_items: T) -> Vec<proc_macro2::TokenStream>
+fn collect_stack_effect<'a, T>(
+    stack_items: T,
+    index_offset: Option<proc_macro2::TokenStream>,
+) -> (Vec<proc_macro2::TokenStream>, proc_macro2::TokenStream)
 where
     T: DoubleEndedIterator<Item = &'a StackItem>,
 {
-    let mut index = quote! { 0 };
+    let mut index = if let Some(ref index_offset) = index_offset {
+        index_offset.clone()
+    } else {
+        quote! { 0 }
+    };
+
+    let mut prev_index = index.clone();
 
     let mut fields = vec![];
 
-    for pop in stack_items.rev() {
-        let count = match pop {
+    for item in stack_items.rev() {
+        prev_index = index.clone();
+        let count = match item {
             StackItem::Name(name) => {
                 let name = name.to_string();
 
-                fields.push(quote! { StackItem { name: #name, count: 1, index: (#index) - 1 } });
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - 1 }
+                } else {
+                    index.clone()
+                };
+
+                fields.push(quote! { StackItem { name: #name, count: 1, index: #new_index } });
                 quote! { 1 }
             }
             StackItem::NameCounted(name, count) => {
                 let name = name.to_string();
 
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - #count }
+                } else {
+                    index.clone()
+                };
+
                 fields.push(
-                    quote! { StackItem { name: #name, count: (#count) as u32, index: (#index) - #count } },
+                    quote! { StackItem { name: #name, count: (#count) as u32, index: #new_index } },
                 );
                 quote! { #count }
             }
             StackItem::Unused(count) => quote! { #count },
         };
 
-        index = quote! { (#index) - #count };
+        if index_offset.is_none() {
+            index = quote! { (#index) - #count };
+        } else {
+            index = quote! { (#index) + #count };
+        }
     }
 
-    fields.reverse();
+    if index_offset.is_none() {
+        fields.reverse();
+    }
 
-    fields
+    (fields, index)
 }
 
 #[proc_macro]
@@ -448,9 +476,12 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         let mut stack_delta = quote! { 0 };
 
         if let Some(stack_effect) = &opcode.stack_effect {
-            input_constructor_fields = collect_stack_effect(stack_effect.pops.iter());
+            let input_offset;
+            (input_constructor_fields, input_offset) =
+                collect_stack_effect(stack_effect.pops.iter(), None);
 
-            output_constructor_fields = collect_stack_effect(stack_effect.pushes.iter());
+            (output_constructor_fields, _) =
+                collect_stack_effect(stack_effect.pushes.iter().rev(), Some(input_offset));
 
             let pushes = sum_items(&stack_effect.pushes);
             let pops = sum_items(&stack_effect.pops);
@@ -474,9 +505,13 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     }
 
     let sir_exception = if let Some(exception) = exception {
-        let input_fields = collect_stack_effect(exception.stack_effect.pops.iter());
+        let (input_fields, input_offset) =
+            collect_stack_effect(exception.stack_effect.pops.iter(), None);
 
-        let output_fields = collect_stack_effect(exception.stack_effect.pushes.iter());
+        let (output_fields, _) = collect_stack_effect(
+            exception.stack_effect.pushes.iter().rev(),
+            Some(input_offset),
+        );
 
         let pushes = sum_items(&exception.stack_effect.pushes);
         let pops = sum_items(&exception.stack_effect.pops);
@@ -739,9 +774,10 @@ mod tests {
             StackItem::Name(Ident::new("out2", Span::call_site())),
         ];
 
-        let input_fields = crate::collect_stack_effect(inputs.iter());
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
 
-        let output_fields = crate::collect_stack_effect(outputs.iter());
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
 
         for input_field in input_fields {
             println!("{}", input_field);
@@ -754,7 +790,7 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[1]),
-            "StackItem { name : \"out2\" , count : 1 , index : (0) - 1 }"
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - 1) - 1) + 1 }"
         );
 
         for output_field in output_fields {
@@ -786,9 +822,10 @@ mod tests {
             StackItem::Name(Ident::new("out2", Span::call_site())),
         ];
 
-        let input_fields = crate::collect_stack_effect(inputs.iter());
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
 
-        let output_fields = crate::collect_stack_effect(outputs.iter());
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
 
         for input_field in input_fields {
             println!("{}", input_field);
@@ -796,12 +833,12 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[0]),
-            "StackItem { name : \"out\" , count : 5 , index : ((0) - 1) - 5 }"
+            "StackItem { name : \"out\" , count : (5) as u32 , index : ((0) - 1) - 5 }"
         );
 
         assert_eq!(
             format!("{}", output_fields[1]),
-            "StackItem { name : \"out2\" , count : 1 , index : (0) - 1 }"
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - 1) - 5) + 5 }"
         );
 
         for output_field in output_fields {
