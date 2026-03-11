@@ -522,13 +522,14 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             #[derive(PartialEq, Debug, Clone)]
             pub struct SIRException {
                 pub lasti: bool,
+                pub stack_depth: usize,
                 pub input: Vec<StackItem>,
                 pub output: Vec<StackItem>,
                 pub net_stack_delta: isize
             }
 
             impl SIRException {
-                pub fn new(lasti: bool, jump: bool) -> Self {
+                pub fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
                     let input = vec![
                         #(
                             #input_fields
@@ -545,6 +546,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
                     Self {
                         lasti,
+                        stack_depth,
                         input,
                         output,
                         net_stack_delta,
@@ -555,8 +557,8 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             impl GenericSIRException for SIRException {
                 type Opcode = Opcode;
 
-                fn new(lasti: bool, jump: bool) -> Self {
-                    SIRException::new(lasti, jump)
+                fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
+                    SIRException::new(lasti, stack_depth, jump)
                 }
 
                 fn get_outputs(&self) -> &[StackItem] {
@@ -602,7 +604,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             impl GenericSIRException for SIRException {
                 type Opcode = Opcode;
 
-                fn new(lasti: bool, jump: bool) -> Self {
+                fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
                     SIRException {}
                 }
 
