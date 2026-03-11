@@ -572,6 +572,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 fn get_net_stack_delta(&self) -> isize {
                     self.net_stack_delta
                 }
+
+                fn get_stack_depth(&self) -> usize {
+                    self.stack_depth
+                }
             }
 
             impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
@@ -617,6 +621,10 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_net_stack_delta(&self) -> isize {
+                    0
+                }
+
+                fn get_stack_depth(&self) -> usize {
                     0
                 }
             }
