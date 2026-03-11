@@ -315,12 +315,11 @@ where
         quote! { 0 }
     };
 
-    let mut prev_index = index.clone();
+    let mut last_index = index.clone();
 
     let mut fields = vec![];
 
     for item in stack_items.rev() {
-        prev_index = index.clone();
         let count = match item {
             StackItem::Name(name) => {
                 let name = name.to_string();
@@ -356,13 +355,17 @@ where
         } else {
             index = quote! { (#index) + (#count) };
         }
+
+        if !matches!(item, StackItem::Unused(_)) {
+            last_index = index.clone();
+        }
     }
 
     if index_offset.is_none() {
         fields.reverse();
     }
 
-    (fields, index)
+    (fields, last_index)
 }
 
 #[proc_macro]
