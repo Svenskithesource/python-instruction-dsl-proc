@@ -798,12 +798,12 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[0]),
-            "StackItem { name : \"out\" , count : 1 , index : ((0) - 1) - 1 }"
+            "StackItem { name : \"out\" , count : 1 , index : ((0) - (1)) - (1) }"
         );
 
         assert_eq!(
             format!("{}", output_fields[1]),
-            "StackItem { name : \"out2\" , count : 1 , index : (((0) - 1) - 1) + 1 }"
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - (1)) - (1)) + (1) }"
         );
 
         for output_field in output_fields {
@@ -846,12 +846,12 @@ mod tests {
 
         assert_eq!(
             format!("{}", output_fields[0]),
-            "StackItem { name : \"out\" , count : (5) as u32 , index : ((0) - 1) - 5 }"
+            "StackItem { name : \"out\" , count : (5) as u32 , index : ((0) - (1)) - (5) }"
         );
 
         assert_eq!(
             format!("{}", output_fields[1]),
-            "StackItem { name : \"out2\" , count : 1 , index : (((0) - 1) - 5) + 5 }"
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - (1)) - (5)) + (5) }"
         );
 
         for output_field in output_fields {
