@@ -688,6 +688,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
 
             impl GenericSIRNode for SIRNode {
                 type Opcode = Opcode;
+                type SIRException = SIRException;
 
                 fn new(opcode: Self::Opcode, oparg: u32, jump: bool) -> Self {
                     SIRNode::new(opcode, oparg, jump)
