@@ -578,7 +578,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
+            impl std::fmt::Display for ExceptionCall<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     let mut inputs = self
                         .stack_inputs
@@ -599,7 +599,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
             pub struct SIRException {
             }
 
-            impl std::fmt::Display for ExceptionCall<SIRNode, SIRException> {
+            impl std::fmt::Display for ExceptionCall<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     unreachable!()
                 }
@@ -707,13 +707,13 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl SIROwned<SIRNode, SIRException> for SIR<SIRNode, SIRException> {
-                fn new(statements: Vec<SIRStatement<SIRNode, SIRException>>) -> Self {
+            impl SIROwned<SIRNode> for SIR<SIRNode> {
+                fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
                     SIR(statements)
                 }
             }
 
-            impl std::fmt::Display for SIR<SIRNode, SIRException> {
+            impl std::fmt::Display for SIR<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     for statement in &self.0 {
                         match statement {
@@ -733,7 +733,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl std::fmt::Display for Call<SIRNode, SIRException> {
+            impl std::fmt::Display for Call<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     let mut inputs = self
                         .stack_inputs
@@ -747,7 +747,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl std::fmt::Display for SIRExpression<SIRNode, SIRException> {
+            impl std::fmt::Display for SIRExpression<SIRNode> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
                         SIRExpression::Call(call) => write!(f, "{}", call),
