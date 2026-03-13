@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     Expr, Ident, LitInt, Token, bracketed, parenthesized, parse::Parse, parse_macro_input,
-    token::Paren,
+    spanned::Spanned,
 };
 
 #[derive(Clone)]
@@ -26,6 +26,10 @@ struct Opcode {
     name: Ident,
     number: LitInt,
     stack_effect: Option<StackEffect>,
+}
+
+struct Exception {
+    stack_effect: StackEffect,
 }
 
 impl Parse for Opcode {
@@ -140,23 +144,129 @@ impl Parse for Opcode {
     }
 }
 
+impl Parse for Exception {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        // Special parsing for custom exception specification
+        // Example: *EXCEPTION ( -- lasti[if lasti {1} else {0}], exception)
+
+        input.parse::<Token![*]>()?;
+        syn::custom_keyword!(EXCEPTION);
+        input.parse::<EXCEPTION>()?;
+
+        let inner_stack_effect;
+
+        parenthesized!(inner_stack_effect in input);
+
+        let mut stack_effect = StackEffect {
+            pops: vec![],
+            pushes: vec![],
+        };
+
+        // Pops
+        while inner_stack_effect.peek(Ident) {
+            let name: Ident = inner_stack_effect.parse()?;
+
+            stack_effect.pops.push(
+                // This name is special, see the reference document on GitHub.
+                if name == "unused" {
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::Unused(size)
+                    } else {
+                        StackItem::Unused(Expr::Lit(syn::ExprLit {
+                            attrs: vec![],
+                            lit: syn::Lit::Int(LitInt::new(
+                                "1",
+                                proc_macro::Span::call_site().into(),
+                            )),
+                        }))
+                    }
+                } else {
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::NameCounted(name, size)
+                    } else {
+                        StackItem::Name(name)
+                    }
+                },
+            );
+
+            if inner_stack_effect.parse::<Token![,]>().is_err() {
+                break;
+            }
+        }
+
+        inner_stack_effect.parse::<Token![-]>()?;
+        inner_stack_effect.parse::<Token![-]>()?;
+
+        while inner_stack_effect.peek(Ident) {
+            let name: Ident = inner_stack_effect.parse()?;
+
+            stack_effect.pushes.push(
+                // This name is special, see the reference document on GitHub.
+                if name == "unused" {
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::Unused(size)
+                    } else {
+                        StackItem::Unused(Expr::Lit(syn::ExprLit {
+                            attrs: vec![],
+                            lit: syn::Lit::Int(LitInt::new(
+                                "1",
+                                proc_macro::Span::call_site().into(),
+                            )),
+                        }))
+                    }
+                } else {
+                    if inner_stack_effect.peek(syn::token::Bracket) {
+                        let inner_bracket;
+                        bracketed!(inner_bracket in inner_stack_effect);
+                        let size: Expr = inner_bracket.parse()?;
+                        StackItem::NameCounted(name, size)
+                    } else {
+                        StackItem::Name(name)
+                    }
+                },
+            );
+
+            if inner_stack_effect.parse::<Token![,]>().is_err() {
+                break;
+            }
+        }
+
+        Ok(Exception { stack_effect })
+    }
+}
+
 struct Opcodes {
     opcodes: Vec<Opcode>,
+    exception: Option<Exception>,
 }
 
 impl Parse for Opcodes {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut opcodes = vec![];
+        let mut exception = None;
 
         loop {
-            opcodes.push(Opcode::parse(input)?);
+            if input.peek(Token![*]) {
+                exception = Some(Exception::parse(input)?);
+            } else {
+                opcodes.push(Opcode::parse(input)?);
+            }
 
             if input.parse::<Token![,]>().is_err() || input.is_empty() {
                 break;
             }
         }
 
-        Ok(Opcodes { opcodes })
+        Ok(Opcodes { opcodes, exception })
     }
 }
 
@@ -192,9 +302,72 @@ fn sum_items(items: &[StackItem]) -> Expr {
     }
 }
 
+fn collect_stack_effect<'a, T>(
+    stack_items: T,
+    index_offset: Option<proc_macro2::TokenStream>,
+) -> (Vec<proc_macro2::TokenStream>, proc_macro2::TokenStream)
+where
+    T: DoubleEndedIterator<Item = &'a StackItem>,
+{
+    let mut index = if let Some(ref index_offset) = index_offset {
+        index_offset.clone()
+    } else {
+        quote! { 0 }
+    };
+
+    let mut prev_index = index.clone();
+
+    let mut fields = vec![];
+
+    for item in stack_items.rev() {
+        prev_index = index.clone();
+        let count = match item {
+            StackItem::Name(name) => {
+                let name = name.to_string();
+
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - 1 }
+                } else {
+                    index.clone()
+                };
+
+                fields.push(quote! { StackItem { name: #name, count: 1, index: #new_index } });
+                quote! { 1 }
+            }
+            StackItem::NameCounted(name, count) => {
+                let name = name.to_string();
+
+                let new_index = if index_offset.is_none() {
+                    quote! { (#index) - (#count) }
+                } else {
+                    index.clone()
+                };
+
+                fields.push(
+                    quote! { StackItem { name: #name, count: (#count) as u32, index: #new_index } },
+                );
+                quote! { #count }
+            }
+            StackItem::Unused(count) => quote! { #count },
+        };
+
+        if index_offset.is_none() {
+            index = quote! { (#index) - (#count) };
+        } else {
+            index = quote! { (#index) + (#count) };
+        }
+    }
+
+    if index_offset.is_none() {
+        fields.reverse();
+    }
+
+    (fields, index)
+}
+
 #[proc_macro]
 pub fn define_opcodes(input: TokenStream) -> TokenStream {
-    let Opcodes { opcodes } = parse_macro_input!(input as Opcodes);
+    let Opcodes { opcodes, exception } = parse_macro_input!(input as Opcodes);
 
     let opcodes_with_stack: Vec<_> = opcodes
         .iter()
@@ -293,5 +466,438 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
         }
     };
 
+    let mut input_sirs = vec![];
+    let mut output_sirs = vec![];
+    let mut stack_deltas = vec![];
+
+    for (opcode, name) in opcodes.iter().zip(names) {
+        let mut input_constructor_fields = vec![];
+        let mut output_constructor_fields = vec![];
+        let mut stack_delta = quote! { 0 };
+
+        if let Some(stack_effect) = &opcode.stack_effect {
+            let input_offset;
+            (input_constructor_fields, input_offset) =
+                collect_stack_effect(stack_effect.pops.iter(), None);
+
+            (output_constructor_fields, _) =
+                collect_stack_effect(stack_effect.pushes.iter().rev(), Some(input_offset));
+
+            let pushes = sum_items(&stack_effect.pushes);
+            let pops = sum_items(&stack_effect.pops);
+
+            stack_delta = quote! { (#pushes) as isize - (#pops) as isize};
+        }
+
+        input_sirs.push(quote! { Opcode::#name => vec![
+            #(
+                #input_constructor_fields
+            ),*
+        ] });
+
+        output_sirs.push(quote! { Opcode::#name => vec![
+            #(
+                #output_constructor_fields
+            ),*
+        ] });
+
+        stack_deltas.push(quote! { Opcode::#name => #stack_delta });
+    }
+
+    let sir_exception = if let Some(exception) = exception {
+        let (input_fields, input_offset) =
+            collect_stack_effect(exception.stack_effect.pops.iter(), None);
+
+        let (output_fields, _) = collect_stack_effect(
+            exception.stack_effect.pushes.iter().rev(),
+            Some(input_offset),
+        );
+
+        let pushes = sum_items(&exception.stack_effect.pushes);
+        let pops = sum_items(&exception.stack_effect.pops);
+
+        let stack_delta = quote! { (#pushes) as isize - (#pops) as isize};
+
+        quote! {
+            #[derive(PartialEq, Debug, Clone)]
+            pub struct SIRException {
+                pub lasti: bool,
+                pub stack_depth: usize,
+                pub input: Vec<StackItem>,
+                pub output: Vec<StackItem>,
+                pub net_stack_delta: isize
+            }
+
+            impl SIRException {
+                pub fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
+                    let input = vec![
+                        #(
+                            #input_fields
+                        ),*
+                    ];
+
+                    let output = vec![
+                        #(
+                            #output_fields
+                        ),*
+                    ];
+
+                    let net_stack_delta = #stack_delta;
+
+                    Self {
+                        lasti,
+                        stack_depth,
+                        input,
+                        output,
+                        net_stack_delta,
+                    }
+                }
+            }
+
+            impl GenericSIRException for SIRException {
+                type Opcode = Opcode;
+
+                fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
+                    SIRException::new(lasti, stack_depth, jump)
+                }
+
+                fn get_outputs(&self) -> &[StackItem] {
+                    &self.output
+                }
+
+                fn get_inputs(&self) -> &[StackItem] {
+                    &self.input
+                }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    self.net_stack_delta
+                }
+
+                fn get_stack_depth(&self) -> usize {
+                    self.stack_depth
+                }
+            }
+
+            impl std::fmt::Display for ExceptionCall<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let mut inputs = self
+                        .stack_inputs
+                        .iter()
+                        .map(|input| format!("{}", input))
+                        .collect::<Vec<_>>();
+
+                    inputs.push(format!("{}", self.exception.lasti));
+
+                    write!(f, "EXCEPTION({})", inputs.join(", "))
+                }
+            }
+        }
+    } else {
+        quote! {#[derive(PartialEq, Debug, Clone)]
+            /// This does not exist in versions without an exception_table
+            /// So we generate an empty version of it
+            pub struct SIRException {
+            }
+
+            impl std::fmt::Display for ExceptionCall<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    unreachable!()
+                }
+            }
+
+            impl GenericSIRException for SIRException {
+                type Opcode = Opcode;
+
+                fn new(lasti: bool, stack_depth: usize, jump: bool) -> Self {
+                    SIRException {}
+                }
+
+                fn get_outputs(&self) -> &[StackItem] {
+                    &[]
+                }
+
+                fn get_inputs(&self) -> &[StackItem] {
+                    &[]
+                }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    0
+                }
+
+                fn get_stack_depth(&self) -> usize {
+                    0
+                }
+            }
+        }
+    };
+
+    let sir = quote! {
+        pub mod sir {
+            use super::{Opcode};
+            use crate::sir::{SIR, StackItem, SIRStatement, ExceptionCall, Call, SIRExpression, AuxVar};
+            use crate::traits::{GenericSIRNode, SIROwned, GenericSIRException};
+
+
+            #[derive(PartialEq, Debug, Clone)]
+            pub struct SIRNode {
+                pub opcode: Opcode,
+                pub oparg: u32,
+                pub input: Vec<StackItem>,
+                pub output: Vec<StackItem>,
+                pub net_stack_delta: isize
+            }
+
+            impl SIRNode {
+                pub fn new(opcode: Opcode, oparg: u32, jump: bool) -> Self {
+                    // This comes from the Python DSL where it is used to calculate the max stack usage possible. We intentionally disable it here.
+                    let calculate_max = false;
+                    let oparg = oparg as isize;
+
+                    let input = match opcode {
+                        #(
+                            #input_sirs
+                        ),*,
+                        Opcode::INVALID_OPCODE(_) => vec![],
+                    };
+
+                    let output = match opcode {
+                        #(
+                            #output_sirs
+                        ),*,
+                        Opcode::INVALID_OPCODE(_) => vec![],
+                    };
+
+                    let net_stack_delta = match opcode {
+                        #(
+                            #stack_deltas
+                        ),*,
+                        Opcode::INVALID_OPCODE(_) => 0,
+                    };
+
+                    Self {
+                        opcode,
+                        oparg: oparg as u32,
+                        input,
+                        output,
+                        net_stack_delta
+                    }
+                }
+            }
+
+            #sir_exception
+
+            impl GenericSIRNode for SIRNode {
+                type Opcode = Opcode;
+                type SIRException = SIRException;
+
+                fn new(opcode: Self::Opcode, oparg: u32, jump: bool) -> Self {
+                    SIRNode::new(opcode, oparg, jump)
+                }
+
+                fn get_outputs(&self) -> &[StackItem] {
+                    &self.output
+                }
+
+                fn get_inputs(&self) -> &[StackItem] {
+                    &self.input
+                }
+
+                fn get_net_stack_delta(&self) -> isize {
+                    self.net_stack_delta
+                }
+            }
+
+            impl SIROwned<SIRNode> for SIR<SIRNode> {
+                fn new(statements: Vec<SIRStatement<SIRNode>>) -> Self {
+                    SIR(statements)
+                }
+            }
+
+            impl std::fmt::Display for SIR<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    for statement in &self.0 {
+                        match statement {
+                            SIRStatement::Assignment(aux_var, call) => {
+                                writeln!(f, "{} = {}", aux_var.name, call)?;
+                            }
+                            SIRStatement::TupleAssignment(aux_vars, call) => {
+                                let vars = aux_vars.iter().map(|v| v.name.clone()).collect::<Vec<_>>().join(", ");
+                                writeln!(f, "({}) = {}", vars, call)?;
+                            }
+                            SIRStatement::DisregardCall(call) => {
+                                writeln!(f, "{}", call)?;
+                            }
+                        }
+                    }
+                    Ok(())
+                }
+            }
+
+            impl std::fmt::Display for Call<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let mut inputs = self
+                        .stack_inputs
+                        .iter()
+                        .map(|input| format!("{}", input))
+                        .collect::<Vec<_>>();
+
+                    inputs.push(format!("{}", self.node.oparg));
+
+                    write!(f, "{:#?}({})", self.node.opcode, inputs.join(", "))
+                }
+            }
+
+            impl std::fmt::Display for SIRExpression<SIRNode> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        SIRExpression::Call(call) => write!(f, "{}", call),
+                        SIRExpression::Exception(exception_call) => write!(f, "{}", exception_call),
+                        SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
+                        SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
+                        SIRExpression::GeneratorStart => write!(f, "GenStart()"),
+                    }
+                }
+            }
+        }
+    };
+
+    expanded.extend(sir);
+
     expanded.into()
+}
+
+#[cfg(test)]
+mod tests {
+    use proc_macro2::Span;
+    use syn::Ident;
+
+    use crate::StackItem;
+
+    #[test]
+    fn test_stack_effect() {
+        let inputs = [
+            StackItem::Name(Ident::new("first", Span::call_site())),
+            StackItem::Name(Ident::new("second", Span::call_site())),
+        ];
+
+        let outputs = [
+            StackItem::Name(Ident::new("out", Span::call_site())),
+            StackItem::Name(Ident::new("out2", Span::call_site())),
+        ];
+
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
+
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
+
+        for input_field in input_fields {
+            println!("{}", input_field);
+        }
+
+        assert_eq!(
+            format!("{}", output_fields[0]),
+            "StackItem { name : \"out\" , count : 1 , index : ((0) - (1)) - (1) }"
+        );
+
+        assert_eq!(
+            format!("{}", output_fields[1]),
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - (1)) - (1)) + (1) }"
+        );
+
+        for output_field in output_fields {
+            println!("{}", output_field);
+        }
+    }
+
+    #[test]
+    fn test_stack_effect2() {
+        let inputs = [
+            StackItem::NameCounted(
+                Ident::new("first", Span::call_site()),
+                syn::Expr::Lit(syn::ExprLit {
+                    attrs: vec![],
+                    lit: syn::Lit::Int(syn::LitInt::new("5", Span::call_site().into())),
+                }),
+            ),
+            StackItem::Name(Ident::new("second", Span::call_site())),
+        ];
+
+        let outputs = [
+            StackItem::NameCounted(
+                Ident::new("out", Span::call_site()),
+                syn::Expr::Lit(syn::ExprLit {
+                    attrs: vec![],
+                    lit: syn::Lit::Int(syn::LitInt::new("5", Span::call_site().into())),
+                }),
+            ),
+            StackItem::Name(Ident::new("out2", Span::call_site())),
+        ];
+
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
+
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
+
+        for input_field in input_fields {
+            println!("{}", input_field);
+        }
+
+        assert_eq!(
+            format!("{}", output_fields[0]),
+            "StackItem { name : \"out\" , count : (5) as u32 , index : ((0) - (1)) - (5) }"
+        );
+
+        assert_eq!(
+            format!("{}", output_fields[1]),
+            "StackItem { name : \"out2\" , count : 1 , index : (((0) - (1)) - (5)) + (5) }"
+        );
+
+        for output_field in output_fields {
+            println!("{}", output_field);
+        }
+    }
+
+    #[test]
+    fn test_stack_effect_copy() {
+        // Emulates the `COPY 3`` instruction
+        let inputs = [
+            StackItem::Name(Ident::new("bottom", Span::call_site())),
+            StackItem::Unused(syn::Expr::Lit(syn::ExprLit {
+                attrs: vec![],
+                lit: syn::Lit::Int(syn::LitInt::new("2", Span::call_site().into())),
+            })),
+        ];
+
+        let outputs = [
+            StackItem::Name(Ident::new("bottom", Span::call_site())),
+            StackItem::Unused(syn::Expr::Lit(syn::ExprLit {
+                attrs: vec![],
+                lit: syn::Lit::Int(syn::LitInt::new("2", Span::call_site().into())),
+            })),
+            StackItem::Name(Ident::new("top", Span::call_site())),
+        ];
+
+        let (input_fields, input_offset) = crate::collect_stack_effect(inputs.iter(), None);
+
+        let (output_fields, _) =
+            crate::collect_stack_effect(outputs.iter().rev(), Some(input_offset));
+
+        for input_field in input_fields {
+            println!("{}", input_field);
+        }
+
+        assert_eq!(
+            format!("{}", output_fields[0]),
+            "StackItem { name : \"bottom\" , count : 1 , index : ((0) - (2)) - (1) }"
+        );
+
+        assert_eq!(
+            format!("{}", output_fields[1]),
+            "StackItem { name : \"top\" , count : 1 , index : ((((0) - (2)) - (1)) + (1)) + (2) }"
+        );
+
+        for output_field in output_fields {
+            println!("{}", output_field);
+        }
+    }
 }

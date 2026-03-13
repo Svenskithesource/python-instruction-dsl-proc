@@ -4,7 +4,7 @@ license = "GPL-3.0-or-later"
 description = "A procedural macro for defining Python instructions in a DSL."
 repository = "https://github.com/Svenskithesource/python-instruction-dsl-proc"
 readme = "README.md"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2024"
 
 [lib]
@@ -13,5 +13,9 @@ proc-macro = true
 [dependencies]
 heck = "0.5.0"
 paste = "1.0.15"
+proc-macro2 = "1.0.106"
 quote = "1.0.42"
 syn = { version = "2.0.111", features = ["full"] }
+
+[dev-dependencies]
+pyc_editor = { git = "https://github.com/Svenskithesource/pyc-editor", features = ["v310"] }
