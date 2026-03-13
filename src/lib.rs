@@ -632,6 +632,7 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
     };
 
     let sir = quote! {
+        #[cfg(feature = "sir")]
         pub mod sir {
             use super::{Opcode};
             use crate::sir::{SIR, StackItem, SIRStatement, ExceptionCall, Call, SIRExpression, AuxVar};
