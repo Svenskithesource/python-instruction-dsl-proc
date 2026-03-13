@@ -234,8 +234,8 @@ dependencies = [
 
 [[package]]
 name = "pyc_editor"
-version = "0.4.2"
-source = "git+https://github.com/Svenskithesource/pyc-editor?branch=new-sir-stack-emulation#64da6de06e771ed256a195500d7fc534f1f86431"
+version = "0.4.3"
+source = "git+https://github.com/Svenskithesource/pyc-editor#5bc74bb11898bcaa96f9727fcf9e21570a2d5b8f"
 dependencies = [
  "bitflags",
  "displaydoc",
@@ -245,21 +245,9 @@ dependencies = [
  "num-complex",
  "ordered-float",
  "paste",
- "python-instruction-dsl-proc 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "python-instruction-dsl-proc 0.1.9",
  "python_marshal",
  "store-interval-tree",
-]
-
-[[package]]
-name = "python-instruction-dsl-proc"
-version = "0.1.9"
-dependencies = [
- "heck",
- "paste",
- "proc-macro2",
- "pyc_editor",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -270,6 +258,18 @@ checksum = "d06958e132b21dd262fac1a1d8502883b01a191c6d0fecfd4cb4fba7402c1e35"
 dependencies = [
  "heck",
  "paste",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "python-instruction-dsl-proc"
+version = "0.2.0"
+dependencies = [
+ "heck",
+ "paste",
+ "proc-macro2",
+ "pyc_editor",
  "quote",
  "syn",
 ]
