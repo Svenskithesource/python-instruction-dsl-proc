@@ -728,7 +728,9 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                             SIRStatement::DisregardCall(call) => {
                                 writeln!(f, "{}", call)?;
                             }
-                            SIRStatement::UseVar(aux_var) => write!(f, "UseVar({})", aux_var.name.clone()),
+                            SIRStatement::UseVar(aux_var) => {
+                                write!(f, "UseVar({})", aux_var.name.clone());
+                            },
                         }
                     }
                     Ok(())
