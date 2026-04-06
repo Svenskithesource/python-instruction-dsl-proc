@@ -315,12 +315,9 @@ where
         quote! { 0 }
     };
 
-    let mut prev_index = index.clone();
-
     let mut fields = vec![];
 
     for item in stack_items.rev() {
-        prev_index = index.clone();
         let count = match item {
             StackItem::Name(name) => {
                 let name = name.to_string();
@@ -756,7 +753,6 @@ pub fn define_opcodes(input: TokenStream) -> TokenStream {
                     match self {
                         SIRExpression::Call(call) => write!(f, "{}", call),
                         SIRExpression::Exception(exception_call) => write!(f, "{}", exception_call),
-                        SIRExpression::AuxVar(aux_var) => write!(f, "{}", aux_var.name.clone()),
                         SIRExpression::PhiNode(phi) => write!(f, "phi({})", phi.iter().map(|v| &v.name).cloned().collect::<Vec<_>>().join(", ")),
                         SIRExpression::GeneratorStart => write!(f, "GenStart()"),
                     }
